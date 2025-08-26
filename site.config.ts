@@ -46,12 +46,12 @@ export const CONFIG = {
     pageId: process.env.NOTION_PAGE_ID as string,
   },
   // plugins (optional)
-  googleAnalytics: {
-    enable: false,
-    config: {
-      measurementId: process.env.NEXT_PUBLIC_GOOGLE_MEASUREMENT_ID || "",
-    },
+googleAnalytics: {
+  enable: false as boolean,
+  config: {
+    measurementId: process.env.NEXT_PUBLIC_GOOGLE_MEASUREMENT_ID || "",
   },
+},
   googleSearchConsole: {
     enable: false,
     config: {
