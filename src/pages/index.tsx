@@ -1,7 +1,7 @@
 import Link from "next/link"
 import styled from "@emotion/styled"
 import MetaConfig from "src/components/MetaConfig"
-import { CONFIG, CATEGORIES } from "../../site.config"
+import { CONFIG, CATEGORIES } from "site.config"
 import type { NextPageWithLayout } from "../types"
 
 // your existing stuff (posts prefetch etc.)
