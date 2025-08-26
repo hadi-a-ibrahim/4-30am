@@ -3,6 +3,7 @@ import styled from "@emotion/styled"
 import type { GetStaticPaths, GetStaticProps } from "next"
 import MetaConfig from "src/components/MetaConfig"
 import { CONFIG, CATEGORIES } from "site.config"
+import type { Category } from "site.config"
 import { getPosts } from "src/apis"
 import { filterPosts } from "src/libs/utils/notion"
 
