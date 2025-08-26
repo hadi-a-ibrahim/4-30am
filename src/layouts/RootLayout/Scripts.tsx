@@ -1,3 +1,4 @@
+// build-bump: remove literal checks; guarded GA
 import React from "react"
 import Script from "next/script"
 import { CONFIG } from "site.config"
@@ -9,17 +10,10 @@ export default function Scripts() {
 
   return (
     <>
-      <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${id}`}
-        strategy="afterInteractive"
-      />
+      <Script src={`https://www.googletagmanager.com/gtag/js?id=${id}`} strategy="afterInteractive" />
       <Script id="ga-init" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', '${id}');
-        `}
+        {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date()); gtag('config', '${id}');`}
       </Script>
     </>
   )
