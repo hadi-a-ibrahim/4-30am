@@ -81,7 +81,7 @@ export const CONFIG = {
   },
   isProd: process.env.VERCEL_ENV === "production",
   revalidateTime: 21600 * 7,
-} as const
+} 
 
 // ✅ Support BOTH import styles:
 //    import { CONFIG } from "../../site.config"   ✔️
