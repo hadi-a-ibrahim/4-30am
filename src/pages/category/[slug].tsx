@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { useRouter } from "next/router"
 import styled from "@emotion/styled"
 import type { GetStaticPaths, GetStaticProps } from "next"
 import MetaConfig from "src/components/MetaConfig"
@@ -21,23 +22,23 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
   const all = filterPosts(await getPosts())
 
   // Posts that belong to this category (tag matches slug)
-const posts = (all || []).filter((p: any) => {
-  if (!p || !Array.isArray(p.tags)) return false
-  const tags = p.tags.map((t: any) => String(t).toLowerCase())
-  return tags.includes(slug.toLowerCase())
-})
+  const posts = (all || []).filter((p: any) => {
+    if (!p || !Array.isArray(p.tags)) return false
+    const tags = p.tags.map((t: any) => String(t).toLowerCase())
+    return tags.includes(slug.toLowerCase())
+  })
 
-
-  // 👉 Tags ONLY from posts inside this category
- const categoryTags: string[] = Array.from(
-  new Set(
-    posts
-      .flatMap((p: any) => (Array.isArray(p?.tags) ? p.tags : []))
-      .filter(Boolean) // remove null/undefined
-      .map((t: any) => String(t))
+  // Tags ONLY from posts inside this category (exclude the main category tag itself)
+  const categoryTags: string[] = Array.from(
+    new Set(
+      posts
+        .flatMap((p: any) => (Array.isArray(p?.tags) ? p.tags : []))
+        .filter(Boolean)
+        .map((t: any) => String(t))
+    )
   )
-).sort((a, b) => a.localeCompare(b))
-
+    .filter((t) => t.toLowerCase() !== slug.toLowerCase())
+    .sort((a, b) => a.localeCompare(b))
 
   return {
     props: { cat, posts, slug, categoryTags },
@@ -67,6 +68,19 @@ export default function CategoryPage({
     url: `${CONFIG.link}/category/${cat.slug}`,
   }
 
+  // 🔎 read `?t=<subtag>` from URL and filter posts in this category
+  const router = useRouter()
+  const activeTag =
+    typeof router.query.t === "string" ? router.query.t.toLowerCase() : ""
+
+  const visiblePosts = activeTag
+    ? posts.filter(
+        (p: any) =>
+          Array.isArray(p?.tags) &&
+          p.tags.map((t: any) => String(t).toLowerCase()).includes(activeTag)
+      )
+    : posts
+
   return (
     <>
       <MetaConfig {...meta} />
@@ -81,8 +95,8 @@ export default function CategoryPage({
               {categoryTags.map((t) => (
                 <li key={t}>
                   <TagLink
-                    href={`/category/${t.toLowerCase()}`}
-                    className={t.toLowerCase() === slug.toLowerCase() ? "active" : undefined}
+                    href={{ pathname: `/category/${slug}`, query: { t: t.toLowerCase() } }}
+                    className={t.toLowerCase() === activeTag ? "active" : undefined}
                     title={t}
                   >
                     {t}
@@ -100,15 +114,18 @@ export default function CategoryPage({
             {cat.intro && <p>{cat.intro}</p>}
           </Header>
 
-          {(!posts || posts.length === 0) ? (
-            <Empty>No posts yet in this category.</Empty>
+          {(!visiblePosts || visiblePosts.length === 0) ? (
+            <Empty>
+              {activeTag ? `No posts for “${activeTag}”.` : "No posts yet in this category."}
+            </Empty>
           ) : (
             <Grid>
-              {posts.map((post: any) => {
+              {visiblePosts.map((post: any) => {
                 const href = `/${post.slug}` // your detail page
                 const title = post.title || "Untitled"
                 const date = post.date || ""
-                const excerpt = post.excerpt || post.summary || post.description || ""
+                const excerpt =
+                  post.excerpt || post.summary || post.description || ""
                 const thumb = post.thumbnail || post.cover || null
 
                 return (
@@ -144,7 +161,7 @@ const Container = styled.main`
   margin: 0 auto;
   padding: 2rem 1rem;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr); /* ⬅️ only left + main */
+  grid-template-columns: 220px minmax(0, 1fr); /* only left + main */
   gap: 24px;
 
   @media (max-width: 840px) {
