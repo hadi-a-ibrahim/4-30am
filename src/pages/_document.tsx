@@ -19,23 +19,23 @@ class MyDocument extends Document {
             href="/feed"
           ></link>
           {/* google search console */}
-          {CONFIG.googleSearchConsole.enable === true && (
+          {Boolean(CONFIG?.googleSearchConsole?.enable) &&
             <>
               <meta
                 name="google-site-verification"
                 content={CONFIG.googleSearchConsole.config.siteVerification}
               />
             </>
-          )}
+          }
           {/* naver search advisor */}
-          {CONFIG.naverSearchAdvisor.enable === true && (
+          {Boolean(CONFIG?.naverSearchAdvisor?.enable) && 
             <>
               <meta
                 name="naver-site-verification"
                 content={CONFIG.naverSearchAdvisor.config.siteVerification}
               />
             </>
-          )}
+          }
         </Head>
         <body>
           <Main />

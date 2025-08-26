@@ -14,12 +14,6 @@ export const CATEGORIES: Category[] = [
   { slug: "journals", name: "Journals", intro: "Personal logs, habits, and notes.",                 cover: "/covers/journals.jpg" },
 ]
 
-export type Category = {
-  slug: string
-  name: string
-  intro: string
-  cover?: string
-}
 
 
 /* ---------------- CONFIG ---------------- */

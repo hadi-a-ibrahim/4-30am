@@ -1,6 +1,6 @@
 import React from "react"
 import Script from "next/script"
-import { CONFIG } from "../../../site.config"
+import { CONFIG } from "site.config"
 
 export default function Scripts() {
   const gaOn = !!CONFIG?.googleAnalytics?.enable
