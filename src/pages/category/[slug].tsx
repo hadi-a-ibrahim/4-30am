@@ -66,6 +66,10 @@ export default function CategoryPage({
     typeof router.query.t === "string" ? router.query.t.toLowerCase() : ""
   const sort = typeof router.query.s === "string" ? router.query.s : "new" // "new" | "old"
 
+  // then early-returns are OK
+  if (!cat) return <Container>Category not found.</Container>
+
+
   if (!cat) return <Container>Category not found.</Container>
 
   const meta = {
