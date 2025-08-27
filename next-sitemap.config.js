@@ -1,8 +1,15 @@
-const { CONFIG } = require("./site.config")
+// next-sitemap.config.js
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "https://example.vercel.app"; // harmless fallback for local
 
+/** @type {import('next-sitemap').IConfig} */
 module.exports = {
-  siteUrl: CONFIG.link,
+  siteUrl: SITE_URL,
   generateRobotsTxt: true,
   sitemapSize: 7000,
-  generateIndexSitemap: false,
-}
+  exclude: ["/api/*"],
+  robotsTxtOptions: {
+    policies: [{ userAgent: "*", allow: "/" }],
+  },
+};
