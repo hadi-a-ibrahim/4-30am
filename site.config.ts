@@ -218,6 +218,14 @@ export const CATEGORIES: Category[] = [
   },
 ]
 
+// === HOMEPAGE LINKS (icons card under the avatar) ===
+export const LINKS = [
+  { label: "Chess", href: "https://www.chess.com/member/<your-username>", icon: "chess" },
+  { label: "Link Two", href: "https://example.com", icon: "link" },
+  { label: "Link Three", href: "https://example.com", icon: "link" }
+] as const;
+
+
 /* 
 How to use:
 - Parent category page:   /category/<parent>  → shows a gallery of posts tagged with the parent (e.g., 'thoughts')
