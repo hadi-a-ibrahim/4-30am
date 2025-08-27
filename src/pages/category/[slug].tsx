@@ -9,7 +9,8 @@ import type { Category } from "site.config"
 import { getPosts } from "src/apis"
 import { filterPosts } from "src/libs/utils/notion"
 
-/* ---------------- SSG ---------------- */
+
+/* ---------------- SSG ----------,----- */
 
 export const getStaticPaths: GetStaticPaths = async () => {
   const paths = CATEGORIES.map((c) => ({ params: { slug: c.slug } }))
