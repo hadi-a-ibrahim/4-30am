@@ -12,11 +12,13 @@ import { filterPosts } from "src/libs/utils/notion"
 
 export const getStaticPaths: GetStaticPaths = async () => {
   const paths =
-    CATEGORIES.flatMap((cat) =>
-      (cat.children || []).map((ch) => ({
-        params: { slug: ch.slug }
-      }))
-    ) || []
+    CATEGORIES.flatMap(cat =>
+      (cat.children ?? [])
+        .filter(ch => ch && typeof ch.slug === "string" && ch.slug.trim().length > 0)
+        .map(ch => ({
+          params: { slug: cat.slug, child: ch.slug }
+        }))
+    )
 
   return { paths, fallback: "blocking" }
 }
