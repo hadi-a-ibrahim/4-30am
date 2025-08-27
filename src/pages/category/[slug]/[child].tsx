@@ -1,104 +1,111 @@
-// src/pages/category/[slug].tsx
 import Link from "next/link"
 import { useRouter } from "next/router"
 import styled from "@emotion/styled"
 import type { GetStaticPaths, GetStaticProps } from "next"
 import MetaConfig from "src/components/MetaConfig"
 import { CONFIG, CATEGORIES } from "site.config"
-import type { Category } from "site.config"
+import type { Category, CategoryChild} from "site.config"
 import { getPosts } from "src/apis"
 import { filterPosts } from "src/libs/utils/notion"
 
 /* ---------------- SSG ---------------- */
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  const paths = CATEGORIES.map((c) => ({ params: { slug: c.slug } }))
+  const paths =
+    CATEGORIES.flatMap((cat) =>
+      (cat.children || []).map((ch) => ({
+        params: { slug: ch.slug }
+      }))
+    ) || []
+
   return { paths, fallback: "blocking" }
 }
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {
-  const slug = String(params?.slug || "")
-  const cat = (CATEGORIES as Category[]).find((c) => c.slug === slug) || null
+  const childSlug = String(params?.slug || "")
+
+  // find parent and child by slug
+  const parent = CATEGORIES.find((c) =>
+    (c.children || []).some((ch) => ch.slug === childSlug)
+  ) || null
+
+  const child: CategoryChild| null =
+    parent?.children?.find((ch) => ch.slug === childSlug) || null
 
   const all = filterPosts(await getPosts())
 
-  // Posts that belong to this category (tag matches slug)
+  // posts must include BOTH parent slug and child slug in tags
   const posts = (all || []).filter((p: any) => {
-    if (!p || !Array.isArray(p.tags)) return false
-    const tags = p.tags.map((t: any) => String(t).toLowerCase())
-    return tags.includes(slug.toLowerCase())
+    const tags = Array.isArray(p?.tags) ? p.tags.map((t: any) => String(t).toLowerCase()) : []
+    return tags.includes(String(parent?.slug || "").toLowerCase()) &&
+           tags.includes(childSlug.toLowerCase())
   })
 
-  // Tags ONLY from posts inside this category (exclude the main category tag itself)
-  const categoryTags: string[] = Array.from(
+  // build tag list only from posts in this child view (exclude main parent + child tag itself)
+  const scopedTags: string[] = Array.from(
     new Set(
-      posts
-        .flatMap((p: any) => (Array.isArray(p?.tags) ? p.tags : []))
-        .filter(Boolean)
-        .map((t: any) => String(t))
+      posts.flatMap((p: any) => (Array.isArray(p?.tags) ? p.tags : []))
+           .filter(Boolean)
+           .map((t: any) => String(t))
     )
   )
-    .filter((t) => t.toLowerCase() !== slug.toLowerCase())
+    .filter((t) => {
+      const low = t.toLowerCase()
+      return low !== childSlug.toLowerCase() && low !== String(parent?.slug || "").toLowerCase()
+    })
     .sort((a, b) => a.localeCompare(b))
 
-  // For hero & grid — include children (if any)
-  const children = (cat?.children || []).map((ch) => ({
-    slug: ch.slug,
-    name: ch.name,
-    intro: ch.intro || "",
-    cover: (ch as any).cover || (cat as any).cover || null, // use child cover if provided, else fallback
-  }))
-
   return {
-    props: { cat, posts, slug, categoryTags, children },
+    props: { parent, child, posts, childSlug, scopedTags },
     revalidate: CONFIG.revalidateTime,
   }
 }
 
 /* ---------------- Page ---------------- */
 
-export default function CategoryPage({
-  cat,
+export default function ChildCategoryPage({
+  parent,
+  child,
   posts,
-  slug,
-  categoryTags,
-  children,
+  childSlug,
+  scopedTags,
 }: {
-  cat: Category | null
+  parent: Category | null
+  child: CategoryChild| null
   posts: any[]
-  slug: string
-  categoryTags: string[]
-  children: { slug: string; name: string; intro?: string; cover?: string | null }[]
+  childSlug: string
+  scopedTags: string[]
 }) {
-  // ✅ Hooks FIRST, always
+  // hooks FIRST
   const router = useRouter()
-  const activeTag =
-    typeof router.query.t === "string" ? router.query.t.toLowerCase() : ""
+  const activeTag = typeof router.query.t === "string" ? router.query.t.toLowerCase() : ""
   const sort = typeof router.query.s === "string" ? router.query.s : "new" // "new" | "old"
 
-  if (!cat) return <Container>Category not found.</Container>
-
-  const meta = {
-    title: `${cat.name} — ${CONFIG.blog.title}`,
-    description: cat.intro || CONFIG.blog.description,
-    type: "website",
-    url: `${CONFIG.link}/category/${cat.slug}`,
+  // guard
+  if (!parent || !child) {
+    return <Container><Empty>Child category not found.</Empty></Container>
   }
 
-  // Posts filtered by active sub-tag (child tiles are ALWAYS pinned at the top, unaffected by tag filter)
-  const filteredPosts = activeTag
-    ? posts.filter(
-        (p: any) =>
-          Array.isArray(p?.tags) &&
-          p.tags.map((t: any) => String(t).toLowerCase()).includes(activeTag)
+  const meta = {
+    title: `${child.name} — ${parent.name} — ${CONFIG.blog.title}`,
+    description: child.intro || parent.intro || CONFIG.blog.description,
+    type: "website",
+    url: `${CONFIG.link}/category/child/${child.slug}`,
+  }
+
+  // filter by active tag (within this child view)
+  const filtered = activeTag
+    ? posts.filter((p: any) =>
+        Array.isArray(p?.tags) &&
+        p.tags.map((t: any) => String(t).toLowerCase()).includes(activeTag)
       )
     : posts
 
-  // Sort (by date string if available)
-  const visiblePosts = [...filteredPosts].sort((a: any, b: any) => {
+  // sort by date
+  const visiblePosts = [...filtered].sort((a: any, b: any) => {
     const ad = a?.date ? new Date(a.date).getTime() : 0
     const bd = b?.date ? new Date(b.date).getTime() : 0
-    return sort === "old" ? ad - bd : bd - ad // default "new": newest first
+    return sort === "old" ? ad - bd : bd - ad
   })
 
   const total = posts?.length || 0
@@ -107,27 +114,31 @@ export default function CategoryPage({
   return (
     <>
       <MetaConfig {...meta} />
+
       <Hero>
         <HeroInner>
-          <Breadcrumbs aria-label="breadcrumbs">
-            <Link href="/">🏠 Home</Link>
+          <Breadcrumbs>
+            <Link href="/">Home</Link>
             <span>→</span>
-            <strong>📁 {cat.name}</strong>
+            <Link href={`/category/${parent.slug}`}>{parent.name}</Link>
+            <span>→</span>
+            <strong>{child.name}</strong>
           </Breadcrumbs>
 
           <HeroTitle>
-            {cat.name} <span>✨</span>
+            {child.emoji ? <span aria-hidden> {child.emoji} </span> : null}
+            {child.name}
           </HeroTitle>
-          {cat.intro && <HeroIntro>{cat.intro}</HeroIntro>}
+          {(child.intro || parent.intro) && (
+            <HeroIntro>{child.intro || parent.intro}</HeroIntro>
+          )}
 
           <HeroMeta>
             <span>{total} post{total === 1 ? "" : "s"}</span>
             {activeTag && (
               <>
                 <Dot>•</Dot>
-                <span>
-                  filtered by <strong>#{activeTag}</strong>
-                </span>
+                <span>filtered by <strong>#{activeTag}</strong></span>
               </>
             )}
           </HeroMeta>
@@ -135,13 +146,13 @@ export default function CategoryPage({
       </Hero>
 
       <Shell>
-        {/* Left: Category-scoped tags */}
+        {/* Left: tags scoped to this child view */}
         <AsideLeft>
           <SectionHead>
             <SectionTitle>Tags</SectionTitle>
             {activeTag ? (
               <ClearLink
-                href={{ pathname: `/category/${slug}` }}
+                href={{ pathname: `/category/child/${childSlug}` }}
                 title="Clear tag filter"
               >
                 Clear
@@ -149,18 +160,18 @@ export default function CategoryPage({
             ) : null}
           </SectionHead>
 
-          {categoryTags.length === 0 ? (
-            <SmallMuted>— No tags yet —</SmallMuted>
+          {scopedTags.length === 0 ? (
+            <SmallMuted>No tags yet.</SmallMuted>
           ) : (
             <TagList>
-              {categoryTags.map((t) => {
+              {scopedTags.map((t) => {
                 const tag = t.toLowerCase()
                 const isActive = tag === activeTag
                 return (
                   <li key={t}>
                     <TagLink
                       href={{
-                        pathname: `/category/${slug}`,
+                        pathname: `/category/child/${childSlug}`,
                         query: { t: tag, s: sort },
                       }}
                       className={isActive ? "active" : undefined}
@@ -175,34 +186,7 @@ export default function CategoryPage({
           )}
         </AsideLeft>
 
-        {/* Main content */}
         <Main>
-          {/* Pinned: Child tiles (gallery like Home) */}
-          {!!children.length && (
-            <>
-              <SectionTitle as="h2">Subcategories</SectionTitle>
-              <ChildGrid>
-                {children.map((ch) => (
-                  <ChildCard key={ch.slug} href={`/category/${slug}/${ch.slug}`}>
-                    <ChildThumb>
-                      {ch.cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={ch.cover} alt={ch.name} />
-                      ) : (
-                        <ChildPlaceholder />
-                      )}
-                    </ChildThumb>
-                    <ChildBody>
-                      <ChildName>#{ch.name}</ChildName>
-                      {ch.intro && <ChildIntro>{ch.intro}</ChildIntro>}
-                    </ChildBody>
-                  </ChildCard>
-                ))}
-              </ChildGrid>
-              <Divider />
-            </>
-          )}
-
           <Toolbar>
             <ResultText>
               Showing <strong>{shown}</strong> of <strong>{total}</strong>
@@ -210,18 +194,18 @@ export default function CategoryPage({
 
             <SortGroup role="radiogroup" aria-label="Sort">
               <SortLink
-                href={{ pathname: `/category/${slug}`, query: { t: activeTag || undefined, s: "new" } }}
+                href={{ pathname: `/category/child/${childSlug}`, query: { t: activeTag || undefined, s: "new" } }}
                 className={sort === "new" ? "active" : undefined}
                 aria-checked={sort === "new"}
               >
-                🆕 Newest
+                Newest
               </SortLink>
               <SortLink
-                href={{ pathname: `/category/${slug}`, query: { t: activeTag || undefined, s: "old" } }}
+                href={{ pathname: `/category/child/${childSlug}`, query: { t: activeTag || undefined, s: "old" } }}
                 className={sort === "old" ? "active" : undefined}
                 aria-checked={sort === "old"}
               >
-                🗂️ Oldest
+                Oldest
               </SortLink>
             </SortGroup>
           </Toolbar>
@@ -229,11 +213,9 @@ export default function CategoryPage({
           {shown === 0 ? (
             <Empty>
               {activeTag ? (
-                <>
-                  No posts for <strong>#{activeTag}</strong>.
-                </>
+                <>No posts for <strong>#{activeTag}</strong>.</>
               ) : (
-                "No posts yet in this category."
+                "No posts yet here."
               )}
             </Empty>
           ) : (
@@ -260,7 +242,7 @@ export default function CategoryPage({
                       <CardTitle>{title}</CardTitle>
                       {excerpt && <CardExcerpt>{excerpt}</CardExcerpt>}
                       <MetaRow>
-                        {date && <span>🗓️ {date}</span>}
+                        {date && <span>{date}</span>}
                         <Spacer />
                         <TagRow>
                           {(post.tags || [])
@@ -315,7 +297,6 @@ const HeroTitle = styled.h1`
   font-size: 2rem;
   font-weight: 900;
   letter-spacing: -0.01em;
-  display: flex; gap: .35rem; align-items: center;
 `
 
 const HeroIntro = styled.p`
@@ -412,54 +393,6 @@ const TagLink = styled(Link)`
     color: ${({ theme }) => theme.colors.gray12};
   }
 `
-
-/* --- pinned child tiles (gallery) --- */
-
-const ChildGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-  margin: 8px 0 18px 0;
-
-  @media (min-width: 720px) { grid-template-columns: 1fr 1fr; }
-  @media (min-width: 1040px) { grid-template-columns: 1fr 1fr 1fr; }
-`
-
-const ChildCard = styled(Link)`
-  display: block;
-  border: 1px solid ${({ theme }) => theme.colors.gray7};
-  border-radius: 14px;
-  overflow: hidden;
-  background: ${({ theme }) => theme.colors.gray3};
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
-
-  &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 22px rgba(0,0,0,0.28);
-    border-color: ${({ theme }) => theme.colors.gray8};
-  }
-`
-
-const ChildThumb = styled.div`
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  img { width: 100%; height: 100%; object-fit: cover; display: block; }
-`
-const ChildPlaceholder = styled.div`
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-`
-const ChildBody = styled.div` padding: 12px 14px 14px 14px; `
-const ChildName = styled.h3` margin: 0; font-size: 1.06rem; font-weight: 800; letter-spacing: -0.01em; `
-const ChildIntro = styled.p` margin: 6px 0 0 0; color: ${({ theme }) => theme.colors.gray11}; line-height: 1.5; font-size: 0.95rem; `
-
-const Divider = styled.div`
-  height: 1px; background: ${({ theme }) => theme.colors.gray6}; margin: 14px 0 10px 0;
-`
-
-/* --- posts grid --- */
 
 const Main = styled.section``
 
@@ -590,6 +523,7 @@ const Empty = styled.p`
   color: ${({ theme }) => theme.colors.gray11};
   font-size: 0.95rem;
   margin-top: 1rem;
+  text-align: center;
 `
 
 const Container = styled.main`
