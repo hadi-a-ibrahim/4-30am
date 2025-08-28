@@ -1,33 +1,24 @@
-import { TPost } from "src/types"
-import { CONFIG } from "site.config"
+// src/routes/Detail/PostDetail/CommentBox/index.tsx
 import dynamic from "next/dynamic"
+import { CONFIG } from "site.config"
 
+// Dynamically import Utterances; it has **no props** now
 const UtterancesComponent = dynamic(
-  () => {
-    return import("./Utterances")
-  },
-  { ssr: false }
-)
-const CusdisComponent = dynamic(
-  () => {
-    return import("./Cusdis")
-  },
+  () => import("./Utterances").then((mod) => mod.default),
   { ssr: false }
 )
 
-type Props = {
-  data: TPost
-}
+export default function CommentBox() {
+  // if all comment systems are disabled, render nothing
+  if (!CONFIG?.utterances?.enable && !CONFIG?.cusdis?.enable) {
+    return null
+  }
 
-const CommentBox: React.FC<Props> = ({ data }) => {
-  return (
-    <div>
-      {CONFIG.utterances.enable && <UtterancesComponent issueTerm={data.id} />}
-      {CONFIG.cusdis.enable && (
-        <CusdisComponent id={data.id} slug={data.slug} title={data.title} />
-      )}
-    </div>
-  )
-}
+  // your setup uses Utterances
+  if (CONFIG?.utterances?.enable) {
+    return <UtterancesComponent />
+  }
 
-export default CommentBox
+  // (Cusdis branch removed/disabled)
+  return null
+}
