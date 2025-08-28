@@ -93,8 +93,7 @@ const HomePage: NextPageWithLayout = () => {
 
           {/* Right: avatar + links */}
           <Aside>
-            <AvatarCard avatarSrc={avatarSrc} siteBio={siteBio} />
-            {links.length > 0 && <LinksCard items={links as any} />}
+            <AvatarCard />
           </Aside>
         </Shell>
 
@@ -146,7 +145,9 @@ const Shell = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
   gap: 18px;
-  @media (max-width: 900px) { grid-template-columns: 1fr; }
+  @media (max-width: 900px) { 
+  grid-template-columns: 1fr;
+   }
 `
 
 const Main = styled.section``
@@ -163,17 +164,40 @@ const Grid = styled.div`
   @media (min-width: 720px) { grid-template-columns: 1fr 1fr; }
 `
 
+/* 🔥 Category card: livelier hover, keyboard focus, reduced motion */
 const Card = styled(Link)`
+  position: relative;
   display: block;
   border: 1px solid ${({ theme }) => theme.colors.gray7};
   border-radius: 12px;
   overflow: hidden;
-  background: ${({ theme }) => theme.colors.gray3};
-  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  background:
+    radial-gradient(140% 160% at 0% 0%, rgba(255,255,255,0.06), transparent 60%),
+    ${({ theme }) => theme.colors.gray3};
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 240ms ease;
+  text-decoration: none;
+  color: inherit;
+
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 26px rgba(0,0,0,0.28);
     border-color: ${({ theme }) => theme.colors.gray8};
+    background:
+      radial-gradient(140% 160% at 100% 0%, rgba(255,255,255,0.08), transparent 60%),
+      ${({ theme }) => theme.colors.gray3};
+  }
+
+  /* keyboard focus */
+  &:focus-visible {
+    outline: 0;
+    border-color: ${({ theme }) => theme.colors.gray9};
+    box-shadow: 0 0 0 3px rgba(100, 150, 240, 0.20);
+  }
+
+  /* respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    transition: border-color 160ms ease, background 240ms ease;
+    &:hover { transform: none; box-shadow: none; }
   }
 `
 
@@ -184,9 +208,12 @@ const Thumb = styled.div`
   img { width: 100%; height: 100%; object-fit: cover; display: block; }
 `
 
+/* subtle fallback texture when no cover */
 const Placeholder = styled.div`
   width: 100%; height: 100%;
-  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+    linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
 `
 
 const Body = styled.div` padding: 0.9rem 1rem 1.1rem 1rem; `
@@ -201,6 +228,10 @@ const MoreRow = styled.div`
 
 const Aside = styled.aside`
   display: grid; gap: 14px;
+  @media (max-width: 900px) { 
+   order: -1;   /* 👈 move above the categories on mobile */
+   justify-items: center;
+ }
 `
 
 const Footer = styled.footer`

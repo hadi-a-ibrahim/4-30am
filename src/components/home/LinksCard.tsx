@@ -1,18 +1,18 @@
 import Link from "next/link"
 import styled from "@emotion/styled"
 
-type Item = { label: string; href: string; icon: "chess" | "link" }
+type Item = { label: string; href: string; icon?: "chess" | "link" }
 
 export default function LinksCard({ items }: { items: Item[] }) {
   return (
     <Card aria-label="Links">
-      <Title>Links</Title>
       <List>
         {items.map((it) => (
           <li key={it.label}>
             <A href={it.href} target="_blank" rel="noreferrer">
-              <Icon type={it.icon} />
+              <Icon type={it.icon || "link"} />
               <span>{it.label}</span>
+              <small className="ext">↗</small>
             </A>
           </li>
         ))}
@@ -21,25 +21,49 @@ export default function LinksCard({ items }: { items: Item[] }) {
   )
 }
 
-/* styled */
+/* ---------------- styled ---------------- */
+
 const Card = styled.aside`
+  width: 100%;
+  max-width: 220px;                 /* match AvatarCard width */
+  margin: 0 auto;
   border: 1px solid ${({ theme }) => theme.colors.gray7};
   border-radius: 12px;
-  background: ${({ theme }) => theme.colors.gray3};
-  padding: 14px;
+  background:
+    radial-gradient(140% 160% at 0% 0%, rgba(255,255,255,0.06), transparent 60%),
+    ${({ theme }) => theme.colors.gray3};
+  padding: 8px;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: ${({ theme }) => theme.colors.gray8};
+    box-shadow: 0 10px 26px rgba(0,0,0,0.22);
+  }
 `
-const Title = styled.div`
-  font-size: 0.95rem; font-weight: 700; margin-bottom: 8px;
-`
+
 const List = styled.ul`
   list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
 `
+
 const A = styled(Link)`
-  display: flex; gap: 10px; align-items: center; text-decoration: none;
-  color: ${({ theme }) => theme.colors.gray11};
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; color: ${({ theme }) => theme.colors.gray11};
   padding: 8px 10px; border-radius: 10px;
-  &:hover { background: ${({ theme }) => theme.colors.gray4}; color: ${({ theme }) => theme.colors.gray12}; }
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.gray4};
+    color: ${({ theme }) => theme.colors.gray12};
+  }
+
+  small.ext {
+    opacity: 0; margin-left: auto; font-size: .8rem;
+    color: ${({ theme }) => theme.colors.gray10};
+    transition: opacity 140ms ease;
+  }
+  &:hover small.ext { opacity: 1; }
 `
+
 function Icon({ type }: { type: "chess" | "link" }) {
   const common = { width: 18, height: 18, strokeWidth: 1.7 }
   if (type === "chess") {
