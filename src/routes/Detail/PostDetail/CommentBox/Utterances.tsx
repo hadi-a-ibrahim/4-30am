@@ -6,7 +6,7 @@ import { CONFIG } from "site.config"
 export default function Utterances() {
   const ref = useRef<HTMLDivElement | null>(null)
 
-  // read once into locals so eslint deps are simple & stable
+  // read config once
   const repo = CONFIG?.utterances?.config?.repo || ""
   const issueTerm = CONFIG?.utterances?.config?.["issue-term"] || "og:title"
   const label = CONFIG?.utterances?.config?.label || ""
@@ -18,10 +18,17 @@ export default function Utterances() {
       : "preferred-color-scheme" // auto
 
   useEffect(() => {
+    if (typeof window === "undefined") return
     const el = ref.current
     if (!el || !repo) return
 
-    // clear previous mounts (hot reload / route back)
+    // idempotency guard — skip if we already mounted with same inputs
+    const nextKey = `${repo}|${issueTerm}|${label}|${theme}`
+    const currentKey = el.getAttribute("data-u-key")
+    if (currentKey === nextKey) return
+    el.setAttribute("data-u-key", nextKey)
+
+    // clear previous mount
     while (el.firstChild) el.removeChild(el.firstChild)
 
     const s = document.createElement("script")
@@ -35,9 +42,7 @@ export default function Utterances() {
 
     el.appendChild(s)
 
-    return () => {
-      while (el.firstChild) el.removeChild(el.firstChild)
-    }
+    // no teardown needed beyond key-check above
   }, [repo, issueTerm, label, theme])
 
   if (!repo) return null
@@ -48,8 +53,6 @@ export default function Utterances() {
 
 const Box = styled.div`
   margin-top: 2rem;
-  /* keep it minimal; Utterances injects an <iframe> here */
-  iframe {
-    width: 100% !important;
-  }
+  /* Utterances injects an <iframe> */
+  iframe { width: 100% !important; }
 `
