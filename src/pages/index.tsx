@@ -1,4 +1,6 @@
+// src/pages/index.tsx
 import Link from "next/link"
+import Image from "next/image"
 import styled from "@emotion/styled"
 import MetaConfig from "src/components/MetaConfig"
 import { CONFIG, CATEGORIES, LINKS } from "site.config"
@@ -12,14 +14,13 @@ import { queryKey } from "src/constants/queryKey"
 import { dehydrate } from "@tanstack/react-query"
 import type { GetStaticProps } from "next"
 
-// new small cards
-import AvatarCard from "src/components/home/AvatarCard"
-import LinksCard from "src/components/home/LinksCard"
-
 export const getStaticProps: GetStaticProps = async () => {
   const posts = filterPosts(await getPosts())
   await queryClient.prefetchQuery(queryKey.posts(), () => posts)
-  return { props: { dehydratedState: dehydrate(queryClient) }, revalidate: CONFIG.revalidateTime }
+  return {
+    props: { dehydratedState: dehydrate(queryClient) },
+    revalidate: CONFIG.revalidateTime,
+  }
 }
 
 const HomePage: NextPageWithLayout = () => {
@@ -30,10 +31,7 @@ const HomePage: NextPageWithLayout = () => {
     url: CONFIG.link,
   }
 
-  // prep right column data
-  const avatarSrc = CONFIG.profile.image
-  const siteBio = CONFIG.blog.description
-  const links = Array.isArray(LINKS) ? LINKS : [] // ensure safe
+  const links = Array.isArray(LINKS) ? LINKS : []
 
   return (
     <>
@@ -42,7 +40,19 @@ const HomePage: NextPageWithLayout = () => {
         {/* Hero */}
         <Hero>
           <div className="copy">
-            <h1>{CONFIG.blog.title}</h1>
+            <TitleRow>
+              <LogoWrap>
+                <Image
+                  src={CONFIG.profile.image}
+                  alt={`${CONFIG.blog.title} logo`}
+                  width={36}
+                  height={36}
+                  style={{ objectFit: "cover" }}
+                  priority
+                />
+              </LogoWrap>
+              <h1>{CONFIG.blog.title}</h1>
+            </TitleRow>
             <p className="tagline">{CONFIG.blog.description}</p>
             <SearchWrapper>
               <input
@@ -52,7 +62,10 @@ const HomePage: NextPageWithLayout = () => {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     const val = (e.target as HTMLInputElement).value.trim()
-                    if (val) window.location.href = `/search?q=${encodeURIComponent(val)}`
+                    if (val)
+                      window.location.href = `/search?q=${encodeURIComponent(
+                        val
+                      )}`
                   }
                 }}
               />
@@ -60,46 +73,57 @@ const HomePage: NextPageWithLayout = () => {
           </div>
         </Hero>
 
-        {/* Main 2-column layout */}
-        <Shell>
-          {/* Left: categories grid */}
-          <Main>
-            <Section>
-              <h2>Categories</h2>
-              <Grid>
-                {CATEGORIES.map((cat) => (
-                  <Card key={cat.slug} href={`/category/${cat.slug}`}>
-                    <Thumb>
-                      {cat.cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cat.cover} alt={cat.name} />
-                      ) : (
-                        <Placeholder />
-                      )}
-                    </Thumb>
-                    <Body>
-                      <Name>{cat.name}</Name>
-                      {cat.intro && <Intro>{cat.intro}</Intro>}
-                    </Body>
-                  </Card>
-                ))}
-              </Grid>
+        {/* Main: categories grid */}
+        <Main>
+          <Section>
+            <h2>Categories</h2>
+            <Grid>
+              {CATEGORIES.map((cat) => (
+                <Card key={cat.slug} href={`/category/${cat.slug}`}>
+                  <Thumb>
+                    {cat.cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={cat.cover} alt={cat.name} />
+                    ) : (
+                      <Placeholder />
+                    )}
+                  </Thumb>
+                  <Body>
+                    <Name>{cat.name}</Name>
+                    {cat.intro && <Intro>{cat.intro}</Intro>}
+                  </Body>
+                </Card>
+              ))}
+            </Grid>
 
-              <MoreRow>
-                <Link className="more" href="/category">Browse all categories →</Link>
-              </MoreRow>
-            </Section>
-          </Main>
+            <MoreRow>
+              <Link className="more" href="/category">
+                Browse all categories →
+              </Link>
+            </MoreRow>
+          </Section>
+        </Main>
 
-          {/* Right: avatar + links */}
-          <Aside>
-            <AvatarCard avatarSrc={avatarSrc} siteBio={siteBio} />
-            {links.length > 0 && <LinksCard items={links as any} />}
-          </Aside>
-        </Shell>
+        {/* Links at the bottom */}
+        {links.length > 0 && (
+          <LinksRow>
+            {links.map((it) => (
+              <a
+                key={it.label}
+                href={it.href}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {it.label}
+              </a>
+            ))}
+          </LinksRow>
+        )}
 
         {/* Footer */}
-        <Footer>© {new Date().getFullYear()} — {CONFIG.blog.title}</Footer>
+        <Footer>
+          © {new Date().getFullYear()} — {CONFIG.blog.title}
+        </Footer>
       </Container>
     </>
   )
@@ -124,9 +148,40 @@ const Hero = styled.header`
     letter-spacing: -0.01em;
   }
   .tagline {
-    margin: .4rem 0 0 0;
+    margin: 0.4rem 0 0 0;
     color: ${({ theme }) => theme.colors.gray11};
   }
+`
+
+const TitleRow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+
+  h1 {
+    margin: 0;
+    font-size: 2.25rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  @media (max-width: 520px) {
+    h1 {
+      font-size: 1.9rem;
+    }
+  }
+`
+
+const LogoWrap = styled.span`
+  display: inline-block;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid ${({ theme }) => theme.colors.gray7};
+  background: ${({ theme }) => theme.colors.gray4};
 `
 
 const SearchWrapper = styled.div`
@@ -139,28 +194,30 @@ const SearchWrapper = styled.div`
     background: ${({ theme }) => theme.colors.gray2};
     color: ${({ theme }) => theme.colors.gray12};
   }
-  input:focus { outline: none; border-color: ${({ theme }) => theme.colors.gray8}; }
-`
-
-const Shell = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 18px;
-  @media (max-width: 900px) { grid-template-columns: 1fr; }
+  input:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.gray8};
+  }
 `
 
 const Main = styled.section``
 
 const Section = styled.section`
   margin-bottom: 2.5rem;
-  h2 { font-size: 1.35rem; margin: 0 0 0.9rem 0; }
+  h2 {
+    font-size: 1.35rem;
+    margin: 0 0 0.9rem 0;
+  }
 `
 
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-  @media (min-width: 720px) { grid-template-columns: 1fr 1fr; }
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.2rem;
+
+  @media (min-width: 1200px) {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  }
 `
 
 const Card = styled(Link)`
@@ -172,7 +229,7 @@ const Card = styled(Link)`
   transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
     border-color: ${({ theme }) => theme.colors.gray8};
   }
 `
@@ -181,26 +238,64 @@ const Thumb = styled.div`
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
 `
 
 const Placeholder = styled.div`
-  width: 100%; height: 100%;
-  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.02)
+  );
 `
 
-const Body = styled.div` padding: 0.9rem 1rem 1.1rem 1rem; `
-const Name = styled.h2` font-size: 1.2rem; font-weight: 700; margin: 0 0 0.25rem 0; `
-const Intro = styled.p` margin: 0.25rem 0 0 0; color: ${({ theme }) => theme.colors.gray11}; line-height: 1.5; `
+const Body = styled.div`
+  padding: 0.9rem 1rem 1.1rem 1rem;
+`
+const Name = styled.h2`
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+`
+const Intro = styled.p`
+  margin: 0.25rem 0 0 0;
+  color: ${({ theme }) => theme.colors.gray11};
+  line-height: 1.5;
+`
 
 const MoreRow = styled.div`
   margin-top: 0.9rem;
-  .more { color: ${({ theme }) => theme.colors.gray11}; text-decoration: none; }
-  .more:hover { color: ${({ theme }) => theme.colors.gray12}; }
+  .more {
+    color: ${({ theme }) => theme.colors.gray11};
+    text-decoration: none;
+  }
+  .more:hover {
+    color: ${({ theme }) => theme.colors.gray12};
+  }
 `
 
-const Aside = styled.aside`
-  display: grid; gap: 14px;
+const LinksRow = styled.div`
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.95rem;
+
+  a {
+    color: ${({ theme }) => theme.colors.gray11};
+    text-decoration: none;
+  }
+  a:hover {
+    color: ${({ theme }) => theme.colors.gray12};
+    text-decoration: underline;
+  }
 `
 
 const Footer = styled.footer`

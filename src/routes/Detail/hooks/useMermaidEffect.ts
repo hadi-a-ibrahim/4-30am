@@ -74,6 +74,7 @@ const useMermaidEffect = () => {
         console.warn(error)
       })
   }, [data, isFetched])
+  
 
   return
 }

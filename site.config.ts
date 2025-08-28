@@ -187,7 +187,7 @@ export const CATEGORIES: Category[] = [
     slug: "thoughts",
     name: "Thoughts",
     intro: "Short reflections and mental models.",
-    cover: "/covers/thoughts.jpg",
+    cover: "/covers/thoughts.jpeg",
     children: [
       { slug: "philosophy", name: "Philosophy", intro: "On meaning & mind." },
       { slug: "love", name: "Love", intro: "Notes on the heart." },
@@ -208,13 +208,13 @@ export const CATEGORIES: Category[] = [
     slug: "reviews",
     name: "Reviews",
     intro: "Takes on books, tools, and media.",
-    cover: "/covers/reviews.jpg",
+    cover: "/covers/reviews.png",
   },
   {
     slug: "journals",
     name: "Journals",
     intro: "Personal logs, habits, and notes.",
-    cover: "/covers/journals.jpg",
+    cover: "/covers/journal.jpg",
   },
 ]
 
