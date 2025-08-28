@@ -3,11 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import styled from "@emotion/styled"
 import Link from "next/link"
 import type { GetStaticProps, NextPage } from "next"
-// ✅ default import works with esModuleInterop: true in your tsconfig
-import MiniSearch from "minisearch"
-// If your TS complains about default export, use this instead:
-// import * as MiniSearchLib from "minisearch"
-// const MiniSearch = (MiniSearchLib as any).default || (MiniSearchLib as any)
 
 import { CONFIG, CATEGORIES } from "site.config"
 import MetaConfig from "src/components/MetaConfig"
@@ -21,13 +16,17 @@ type Doc = {
   summary: string
   date?: string
   tags: string[]
-  category?: string
-  child?: string
+  category: string | null
+  child: string | null
+  // precomputed for search
+  _title: string
+  _summary: string
+  _tags: string[]
+  _cat: string | null
+  _child: string | null
 }
 
-type Props = {
-  docs: Doc[]
-}
+type Props = { docs: Doc[] }
 
 export const getStaticProps: GetStaticProps<Props> = async () => {
   const all = filterPosts(await getPosts())
@@ -39,11 +38,12 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
 
     const title = String(p?.title || "Untitled")
     const slug = String(p?.slug || "")
-    const summary = String(p?.summary || p?.excerpt || p?.description || "").slice(0, 280)
+    const summary = String(p?.summary || p?.excerpt || p?.description || "")
+    const date = p?.date || p?.createdTime || ""
 
     // derive category/child by matching against CATEGORIES slugs
-    let category: string | undefined
-    let child: string | undefined
+    let category: string | null = null
+    let child: string | null = null
     for (const cat of CATEGORIES) {
       if (tags.includes(cat.slug.toLowerCase())) category = cat.slug
       for (const ch of cat.children ?? []) {
@@ -59,17 +59,19 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
       title,
       slug,
       summary,
-      date: p?.date || p?.createdTime || "",
+      date,
       tags,
       category,
       child,
+      _title: title.toLowerCase(),
+      _summary: summary.toLowerCase(),
+      _tags: tags,
+      _cat: category ? category.toLowerCase() : null,
+      _child: child ? child.toLowerCase() : null,
     }
   })
 
-  return {
-    props: { docs },
-    revalidate: Number(CONFIG.revalidateTime) || 60,
-  }
+  return { props: { docs }, revalidate: Number(CONFIG.revalidateTime) || 60 }
 }
 
 const SearchPage: NextPage<Props> = ({ docs }) => {
@@ -90,23 +92,31 @@ const SearchPage: NextPage<Props> = ({ docs }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // build minisearch once
-  const mini = useMemo(() => {
-    const ms = new MiniSearch<Doc>({
-      fields: ["title", "summary", "tags", "category", "child"],
-      storeFields: ["title", "slug", "summary", "date", "tags", "category", "child"],
-      searchOptions: { fuzzy: 0.2, prefix: true },
-    })
-    ms.addAll(docs)
-    return ms
-  }, [docs])
+  // tiny tokenizer
+  const tokens = useMemo(() => q.toLowerCase().trim().split(/\s+/).filter(Boolean), [q])
 
-  // results
+  // scoring function: lightweight and fast
   const results = useMemo(() => {
-    const query = q.trim()
-    if (!query) return []
-    return mini.search(query)
-  }, [mini, q])
+    if (tokens.length === 0) return []
+    const scored = docs.map((d) => {
+      let score = 0
+      for (const t of tokens) {
+        if (d._title.includes(t)) score += 3
+        if (d._tags.some(tag => tag === t || tag.startsWith(t))) score += 2
+        if (d._cat === t) score += 2
+        if (d._child === t) score += 2
+        if (d._summary.includes(t)) score += 1
+      }
+      return { d, score }
+    })
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      const ad = a.d.date ? new Date(a.d.date).getTime() : 0
+      const bd = b.d.date ? new Date(b.d.date).getTime() : 0
+      return bd - ad
+    })
+    return scored.filter(s => s.score > 0).map(s => s.d)
+  }, [docs, tokens])
 
   // update shareable URL without navigation
   const onSubmit = (e: React.FormEvent) => {
@@ -158,27 +168,22 @@ const SearchPage: NextPage<Props> = ({ docs }) => {
             </Empty>
           ) : (
             <List>
-              {results.map((r: any) => {
-                const doc: Doc = r as any
-                return (
-                  <Item key={doc.id} href={`/${doc.slug}`}>
-                    <h3>{doc.title}</h3>
-                    {doc.summary && <p className="excerpt">{doc.summary}</p>}
-                    <Meta>
-                      {doc.date && <span>🗓️ {doc.date}</span>}
-                      {!!doc.category && <Badge href={`/category/${doc.category}`}>#{doc.category}</Badge>}
-                      {!!doc.child && (
-                        <Badge href={`/category/${doc.category}/${doc.child}`}>#{doc.child}</Badge>
-                      )}
-                      <Tags>
-                        {(doc.tags || []).slice(0, 3).map((t) => (
-                          <small key={t}>#{t}</small>
-                        ))}
-                      </Tags>
-                    </Meta>
-                  </Item>
-                )
-              })}
+              {results.map((doc) => (
+                <Item key={doc.id} href={`/${doc.slug}`}>
+                  <h3>{doc.title}</h3>
+                  {doc.summary && <p className="excerpt">{doc.summary}</p>}
+                  <Meta>
+                    {doc.date && <span>🗓️ {doc.date}</span>}
+                    {doc.category && <Badge href={`/category/${doc.category}`}>#{doc.category}</Badge>}
+                    {doc.child && <Badge href={`/category/${doc.category}/${doc.child}`}>#{doc.child}</Badge>}
+                    <Tags>
+                      {(doc.tags || []).slice(0, 3).map((t) => (
+                        <small key={t}>#{t}</small>
+                      ))}
+                    </Tags>
+                  </Meta>
+                </Item>
+              ))}
             </List>
           )}
         </Main>
@@ -207,26 +212,17 @@ const Title = styled.h1`
   margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.01em;
 `
 
-const Form = styled.form`
-  margin-top: .8rem;
-`
+const Form = styled.form` margin-top: .8rem; `
 
 const InputWrap = styled.div`
-  display: grid;
-  grid-template-columns: 28px 1fr 30px;
-  align-items: center;
-  gap: 10px;
-  padding: .75rem .9rem;
+  display: grid; grid-template-columns: 28px 1fr 30px;
+  align-items: center; gap: 10px; padding: .75rem .9rem;
   border: 1px solid ${({ theme }) => theme.colors.gray7};
-  border-radius: 12px;
-  background: ${({ theme }) => theme.colors.gray2};
+  border-radius: 12px; background: ${({ theme }) => theme.colors.gray2};
   color: ${({ theme }) => theme.colors.gray12};
   transition: border-color 120ms ease, box-shadow 120ms ease;
 
-  input {
-    width: 100%; background: transparent; border: 0; outline: 0;
-    color: inherit;
-  }
+  input { width: 100%; background: transparent; border: 0; outline: 0; color: inherit; }
 
   kbd {
     display: inline-block; text-align: center; color: ${({ theme }) => theme.colors.gray10};
@@ -248,8 +244,7 @@ const Main = styled.section``
 
 const Empty = styled.p`
   color: ${({ theme }) => theme.colors.gray11};
-  font-size: 0.95rem;
-  margin-top: 1rem;
+  font-size: 0.95rem; margin-top: 1rem;
   code {
     background: ${({ theme }) => theme.colors.gray3};
     border: 1px solid ${({ theme }) => theme.colors.gray7};
@@ -257,22 +252,16 @@ const Empty = styled.p`
   }
 `
 
-const List = styled.div`
-  display: grid; gap: 12px; margin-top: .6rem;
-`
+const List = styled.div` display: grid; gap: 12px; margin-top: .6rem; `
 
 const Item = styled(Link)`
   display: block;
   border: 1px solid ${({ theme }) => theme.colors.gray7};
-  border-radius: 12px;
-  background: ${({ theme }) => theme.colors.gray3};
+  border-radius: 12px; background: ${({ theme }) => theme.colors.gray3};
   padding: 12px 14px 14px 14px;
-  text-decoration: none;
-  color: ${({ theme }) => theme.colors.gray12};
+  text-decoration: none; color: ${({ theme }) => theme.colors.gray12};
   transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
-
   &:hover { transform: translateY(-2px); border-color: ${({ theme }) => theme.colors.gray8}; box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
-
   h3 { margin: 0; font-size: 1.06rem; font-weight: 800; letter-spacing: -0.01em; }
   .excerpt { margin: 6px 0 0 0; color: ${({ theme }) => theme.colors.gray11}; line-height: 1.5; font-size: 0.95rem; }
 `
